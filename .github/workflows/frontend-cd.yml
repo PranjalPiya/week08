@@ -17,13 +17,14 @@ on:
         default: 'http://<ip_address>:8001'
       aks_cluster_name:
         description: 'Name of the AKS Cluster to deploy to'
-        required: true
-        default: '<aks_name>'
+        required: false
+        default: ''
       aks_resource_group:
         description: 'Resource Group of the AKS Cluster'
-        required: true
-        default: '<<resource_group_name>'
+        required: false
+        default: ''
 
+  # Still keep the callable interface so other workflows can pass values in
   workflow_call:
     inputs:
       product_api_ip:
@@ -33,11 +34,20 @@ on:
         required: true
         type: string
       aks_cluster_name:
-        required: true
+        required: false
         type: string
       aks_resource_group:
-        required: true
+        required: false
         type: string
+
+# Provide sensible defaults from repo secrets if inputs are blank
+env:
+  # Fallback to secrets if the inputs are not supplied
+  AKS_CLUSTER_NAME:   ${{ inputs.aks_cluster_name != '' && inputs.aks_cluster_name || secrets.AKS_CLUSTER_NAME }}
+  AKS_RESOURCE_GROUP: ${{ inputs.aks_resource_group != '' && inputs.aks_resource_group || secrets.AKS_RESOURCE_GROUP }}
+  # ACR details for image pulls inside manifests (if referenced)
+  ACR_NAME:           ${{ secrets.ACR_NAME }}
+  ACR_LOGIN_SERVER:   ${{ secrets.ACR_LOGIN_SERVER }}
 
 jobs:
   deploy_frontend:
@@ -56,15 +66,17 @@ jobs:
 
       # Login to Azure Container Registry (ACR)
       - name: Login to Azure Container Registry
-        run: az acr login --name ${{ secrets.AZURE_CONTAINER_REGISTRY }}
+        # IMPORTANT: az acr login expects the *ACR NAME*
+        run: az acr login --name ${{ env.ACR_NAME }}
 
       - name: Inject Backend IPs into Frontend main.js
         run: |
-          echo "Injecting IPs into frontend/static/js/main.js"
-          # Ensure frontend/main.js is directly in the path for sed
+          echo "Injecting IPs into frontend/main.js"
+          # Ensure we replace placeholders with the two input values
+          # Inputs expected format: http://X.X.X.X:PORT
           sed -i "s|_PRODUCT_API_URL_|${{ inputs.product_api_ip }}|g" frontend/main.js
           sed -i "s|_ORDER_API_URL_|${{ inputs.order_api_ip }}|g" frontend/main.js
-          
+
           # Display the modified file content for debugging
           echo "--- Modified main.js content ---"
           cat frontend/main.js
@@ -73,20 +85,24 @@ jobs:
       # Build and Push Docker image for Frontend
       - name: Build and Push Frontend Image
         run: |
-          docker build -t ${{ secrets.AZURE_CONTAINER_REGISTRY }}/frontend:latest ./frontend/
-          docker push ${{ secrets.AZURE_CONTAINER_REGISTRY }}/frontend:latest
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend:latest ./frontend/
+          docker push ${{ env.ACR_LOGIN_SERVER }}/frontend:latest
 
+      # Set Kubernetes context (get AKS credentials)
+      # You can keep the action or use az aks get-credentials; both are fine.
       - name: Set Kubernetes context (get AKS credentials)
         uses: azure/aks-set-context@v3
         with:
-          resource-group: ${{ inputs.aks_resource_group }}
-          cluster-name: ${{ inputs.aks_cluster_name }}
+          resource-group: ${{ env.AKS_RESOURCE_GROUP }}
+          cluster-name:   ${{ env.AKS_CLUSTER_NAME }}
 
       - name: Deploy Frontend to AKS
         run: |
-          echo "Deploying frontend with latest tag to AKS cluster: ${{ inputs.aks_cluster_name }}"
+          echo "Deploying frontend with latest tag to AKS cluster: ${{ env.AKS_CLUSTER_NAME }}"
           cd k8s/
-          # Ensure frontend-service.yaml is configured with your ACR
+          # Ensure frontend.yaml image reference uses your ACR login server + image name
+          # Example in YAML:
+          #   image: ${{ env.ACR_LOGIN_SERVER }}/frontend:latest
           kubectl apply -f frontend.yaml
 
       - name: Logout from Azure (AKS deployment)
