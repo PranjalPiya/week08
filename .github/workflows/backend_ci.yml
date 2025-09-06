@@ -125,25 +125,28 @@ jobs:
       - name: Login to Azure Container Registry
         run: az acr login --name ${{ env.ACR_NAME }}
 
-     # 4. Build and push Product Service image
+          # 4. Build and push Product Service image
       - name: Build and Push Product Service Image
         shell: bash
         working-directory: backend/product_service
         run: |
-          echo "PWD=$(pwd)"
-          ls -la
-          docker build -t "${{ env.ACR_LOGIN_SERVER }}/product_service:latest" .
-          docker push "${{ env.ACR_LOGIN_SERVER }}/product_service:latest"
+          # sanitize registry (strip CR/LF and trailing slash)
+          REGISTRY="$(printf "%s" "${{ env.ACR_LOGIN_SERVER }}" | tr -d '\r\n')"
+          REGISTRY="${REGISTRY%/}"
+          echo "Building to $REGISTRY/product_service:latest"
+          docker build -t "${REGISTRY}/product_service:latest" .
+          docker push "${REGISTRY}/product_service:latest"
 
       # 5. Build and push Order Service image
       - name: Build and Push Order Service Image
         shell: bash
         working-directory: backend/order_service
         run: |
-          echo "PWD=$(pwd)"
-          ls -la
-          docker build -t "${{ env.ACR_LOGIN_SERVER }}/order_service:latest" .
-          docker push "${{ env.ACR_LOGIN_SERVER }}/order_service:latest"
+          REGISTRY="$(printf "%s" "${{ env.ACR_LOGIN_SERVER }}" | tr -d '\r\n')"
+          REGISTRY="${REGISTRY%/}"
+          echo "Building to $REGISTRY/order_service:latest"
+          docker build -t "${REGISTRY}/order_service:latest" .
+          docker push "${REGISTRY}/order_service:latest"
 
       # 6. Logout from Azure (always run for security)
       - name: Logout from Azure

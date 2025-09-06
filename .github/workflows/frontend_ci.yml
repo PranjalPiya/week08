@@ -44,15 +44,16 @@ jobs:
       # IMPORTANT: az acr login expects the *ACR NAME* (not the login server)
       run: az acr login --name ${{ env.ACR_NAME }}
 
-   # Build and Push Docker image for Frontend
+      # Build and Push Docker image for Frontend
     - name: Build and Push Frontend Image
       shell: bash
       working-directory: frontend
       run: |
-        echo "PWD=$(pwd)"
-        ls -la
-        docker build -t "${{ env.ACR_LOGIN_SERVER }}/frontend:latest" .
-        docker push "${{ env.ACR_LOGIN_SERVER }}/frontend:latest"
+        REGISTRY="$(printf "%s" "${{ env.ACR_LOGIN_SERVER }}" | tr -d '\r\n')"
+        REGISTRY="${REGISTRY%/}"
+        echo "Building to $REGISTRY/frontend:latest"
+        docker build -t "${REGISTRY}/frontend:latest" .
+        docker push "${REGISTRY}/frontend:latest"
 
     # Logout from Azure for security (runs even if image push fails)
     - name: Logout from Azure
