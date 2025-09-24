@@ -1,0 +1,50 @@
+name: CD Backend (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+    outputs:
+      product_ip:
+        value: ${{ jobs.deploy.outputs.product_ip }}
+      order_ip:
+        value: ${{ jobs.deploy.outputs.order_ip }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    outputs:
+      product_ip: ${{ steps.out_prod.outputs.ip }}
+      order_ip:   ${{ steps.out_order.outputs.ip }}
+    env:
+      SIMULATE: ${{ vars.SIMULATE }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        if: ${{ env.SIMULATE != 'true' }}
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Simulate AKS + emit fake IPs in this task (cost-free)
+      - name: Simulate backend IP outputs
+        if: ${{ env.SIMULATE == 'true' }}
+        run: |
+          echo "PRODUCT_IP=203.0.113.10" >> $GITHUB_ENV
+          echo "ORDER_IP=203.0.113.11" >> $GITHUB_ENV
+          echo "Simulated Product IP: 203.0.113.10"
+          echo "Simulated Order IP:   203.0.113.11"
+
+      - name: Output product IP
+        id: out_prod
+        run: echo "ip=${{ env.PRODUCT_IP }}" >> $GITHUB_OUTPUT
+
+      - name: Output order IP
+        id: out_order
+        run: echo "ip=${{ env.ORDER_IP }}" >> $GITHUB_OUTPUT

@@ -1,0 +1,24 @@
+name: Release Orchestration (CI->CD)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+
+jobs:
+  backend:
+    uses: ./.github/workflows/cd_backend.yml
+    with:
+      environment: ${{ inputs.environment }}
+    secrets: inherit
+
+  frontend:
+    needs: backend
+    uses: ./.github/workflows/cd_frontend.yml
+    with:
+      environment: ${{ inputs.environment }}
+      product_url: ${{ format('http://{0}:8000', needs.backend.outputs.product_ip) }}
+      order_url:   ${{ format('http://{0}:8001', needs.backend.outputs.order_ip) }}
+    secrets: inherit
