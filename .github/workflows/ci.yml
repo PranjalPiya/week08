@@ -109,7 +109,7 @@ jobs:
 
       - name: Simulated CI summary
         if: ${{ env.SIMULATE == 'true' }}
-        run: echo "SIMULATION MODE: Tests ran. Would build & push images to ACR."
+        run: echo "SIMULATION MODE - Tests ran. Would build & push images to ACR."
 
   trigger_release_on_main:
     if: ${{ github.ref == 'refs/heads/main' }}
