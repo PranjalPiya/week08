@@ -10,7 +10,8 @@ on:
 jobs:
   backend:
     uses: ./.github/workflows/cd_backend.yml
-    with: { environment: ${{ inputs.environment }} }
+    with:
+      environment: ${{ inputs.environment }}
     secrets: inherit
 
   frontend:

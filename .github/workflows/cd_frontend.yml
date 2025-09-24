@@ -21,7 +21,8 @@ jobs:
       SIMULATE: ${{ vars.SIMULATE }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Inject backend URLs into frontend/main.js
         run: |
@@ -31,23 +32,24 @@ jobs:
           sed -n '1,40p' frontend/main.js
 
       - name: Azure Login
-        if: env.SIMULATE != 'true'
+        if: ${{ env.SIMULATE != 'true' }}
         uses: azure/login@v1
-        with: { creds: ${{ secrets.AZURE_CREDENTIALS }} }
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Login to ACR
-        if: env.SIMULATE != 'true'
+        if: ${{ env.SIMULATE != 'true' }}
         run: az acr login --name ${{ secrets.ACR_NAME }}
 
       - name: Build & Push frontend
-        if: env.SIMULATE != 'true'
+        if: ${{ env.SIMULATE != 'true' }}
         run: |
           REG="${{ secrets.ACR_LOGIN_SERVER }}"
           docker build -t "$REG/frontend:latest" frontend
           docker push "$REG/frontend:latest"
 
       - name: Simulated deploy summary
-        if: env.SIMULATE == 'true'
+        if: ${{ env.SIMULATE == 'true' }}
         run: |
           echo "SIMULATION MODE: Would build/push frontend and deploy to AKS."
           echo "Using Product URL: ${{ inputs.product_url }}"

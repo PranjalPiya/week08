@@ -21,28 +21,38 @@ env:
 jobs:
   test_and_build:
     runs-on: ubuntu-latest
+
     services:
       product_db:
         image: postgres:15
-        env: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: products }
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: products
         ports: [ "5432:5432" ]
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 10s --health-timeout 5s --health-retries 5
+
       order_db:
         image: postgres:15
-        env: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: orders }
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: orders
         ports: [ "5433:5432" ]
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 10s --health-timeout 5s --health-retries 5
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v5
-        with: { python-version: "3.10" }
+        with:
+          python-version: "3.10"
 
       - name: Install deps (backend)
         run: |
@@ -72,16 +82,17 @@ jobs:
         run: pytest -q
 
       - name: Azure Login
-        if: env.SIMULATE != 'true'
+        if: ${{ env.SIMULATE != 'true' }}
         uses: azure/login@v1
-        with: { creds: ${{ secrets.AZURE_CREDENTIALS }} }
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Login to ACR
-        if: env.SIMULATE != 'true'
+        if: ${{ env.SIMULATE != 'true' }}
         run: az acr login --name ${{ env.ACR_NAME }}
 
       - name: Build & Push backend images
-        if: env.SIMULATE != 'true'
+        if: ${{ env.SIMULATE != 'true' }}
         run: |
           REG="${{ env.ACR_LOGIN_SERVER }}"
           docker build -t "$REG/product_service:latest" backend/product_service
@@ -90,22 +101,23 @@ jobs:
           docker push "$REG/order_service:latest"
 
       - name: Build & Push frontend image
-        if: env.SIMULATE != 'true'
+        if: ${{ env.SIMULATE != 'true' }}
         run: |
           REG="${{ env.ACR_LOGIN_SERVER }}"
           docker build -t "$REG/frontend:latest" frontend
           docker push "$REG/frontend:latest"
 
       - name: Simulated CI summary
-        if: env.SIMULATE == 'true'
+        if: ${{ env.SIMULATE == 'true' }}
         run: echo "SIMULATION MODE: Tests ran. Would build & push images to ACR."
 
   trigger_release_on_main:
-    if: github.ref == 'refs/heads/main'
+    if: ${{ github.ref == 'refs/heads/main' }}
     needs: [ test_and_build ]
     runs-on: ubuntu-latest
     steps:
       - name: Call release orchestrator
         uses: ./.github/workflows/release.yml
-        with: { environment: prod }
+        with:
+          environment: prod
         secrets: inherit

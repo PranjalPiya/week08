@@ -23,16 +23,18 @@ jobs:
       SIMULATE: ${{ vars.SIMULATE }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Azure Login
-        if: env.SIMULATE != 'true'
+        if: ${{ env.SIMULATE != 'true' }}
         uses: azure/login@v1
-        with: { creds: ${{ secrets.AZURE_CREDENTIALS }} }
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # For 9.2C we simulate AKS and emit fake IPs
+      # Simulate AKS + emit fake IPs in this task (cost-free)
       - name: Simulate backend IP outputs
-        if: env.SIMULATE == 'true'
+        if: ${{ env.SIMULATE == 'true' }}
         run: |
           echo "PRODUCT_IP=203.0.113.10" >> $GITHUB_ENV
           echo "ORDER_IP=203.0.113.11" >> $GITHUB_ENV
