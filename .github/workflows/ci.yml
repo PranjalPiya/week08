@@ -114,10 +114,7 @@ jobs:
   trigger_release_on_main:
     if: ${{ github.ref == 'refs/heads/main' }}
     needs: [ test_and_build ]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Call release orchestrator
-        uses: ./.github/workflows/release.yml
-        with:
-          environment: prod
-        secrets: inherit
+    uses: ./.github/workflows/release.yml
+    with:
+      environment: prod
+    secrets: inherit
