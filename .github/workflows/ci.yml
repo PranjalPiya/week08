@@ -12,7 +12,7 @@ on:
     paths:
       - "backend/**"
       - "frontend/**"
-
+# 
 env:
   ACR_NAME: ${{ secrets.ACR_NAME }}
   ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
