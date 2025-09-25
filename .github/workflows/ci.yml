@@ -14,9 +14,9 @@ on:
       - "frontend/**"
 
 env:
-  SIMULATE: ${{ vars.SIMULATE }}
   ACR_NAME: ${{ secrets.ACR_NAME }}
   ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+  TAG: 1.0.0
 
 jobs:
   test_and_build:
@@ -54,14 +54,14 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install deps (backend)
+      - name: Install dependencies
         run: |
           pip install --upgrade pip
           pip install -r backend/product_service/requirements.txt
           pip install -r backend/order_service/requirements.txt
           pip install pytest httpx
 
-      - name: Test product_service
+      - name: Run tests - product_service
         working-directory: backend/product_service
         env:
           POSTGRES_HOST: localhost
@@ -71,7 +71,7 @@ jobs:
           POSTGRES_PASSWORD: postgres
         run: pytest -q
 
-      - name: Test order_service
+      - name: Run tests - order_service
         working-directory: backend/order_service
         env:
           POSTGRES_HOST: localhost
@@ -81,35 +81,34 @@ jobs:
           POSTGRES_PASSWORD: postgres
         run: pytest -q
 
-      - name: Azure Login
-        if: ${{ env.SIMULATE != 'true' }}
-        uses: azure/login@v1
+      - name: Azure login
+        uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Login to ACR
-        if: ${{ env.SIMULATE != 'true' }}
-        run: az acr login --name ${{ env.ACR_NAME }}
-
-      - name: Build & Push backend images
-        if: ${{ env.SIMULATE != 'true' }}
+      - name: Derive ACR name
+        id: acr
         run: |
-          REG="${{ env.ACR_LOGIN_SERVER }}"
-          docker build -t "$REG/product_service:latest" backend/product_service
-          docker push "$REG/product_service:latest"
-          docker build -t "$REG/order_service:latest" backend/order_service
-          docker push "$REG/order_service:latest"
+          ACR_NAME=$(echo "${{ env.ACR_LOGIN_SERVER }}" | cut -d. -f1)
+          echo "name=$ACR_NAME" >> $GITHUB_OUTPUT
 
-      - name: Build & Push frontend image
-        if: ${{ env.SIMULATE != 'true' }}
+      - name: ACR login
+        run: az acr login -n ${{ steps.acr.outputs.name }}
+
+      - name: Build & push product image
         run: |
-          REG="${{ env.ACR_LOGIN_SERVER }}"
-          docker build -t "$REG/frontend:latest" frontend
-          docker push "$REG/frontend:latest"
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/product:${{ env.TAG }} backend/product_service
+          docker push ${{ env.ACR_LOGIN_SERVER }}/product:${{ env.TAG }}
 
-      - name: Simulated CI summary
-        if: ${{ env.SIMULATE == 'true' }}
-        run: echo "SIMULATION MODE - Tests ran. Would build & push images to ACR."
+      - name: Build & push order image
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/order:${{ env.TAG }} backend/order_service
+          docker push ${{ env.ACR_LOGIN_SERVER }}/order:${{ env.TAG }}
+
+      - name: Build & push frontend image
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/frontend:${{ env.TAG }} frontend
+          docker push ${{ env.ACR_LOGIN_SERVER }}/frontend:${{ env.TAG }}
 
   trigger_release_on_main:
     if: ${{ github.ref == 'refs/heads/main' }}
