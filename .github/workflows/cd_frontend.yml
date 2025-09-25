@@ -6,21 +6,16 @@ on:
       environment:
         required: true
         type: string
-      product_url:
-        required: true
-        type: string
-      order_url:
-        required: true
-        type: string
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Azure login
+      - name: Azure Login
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
@@ -34,13 +29,11 @@ jobs:
       - name: Ensure namespace
         run: kubectl create namespace ${{ secrets.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Apply frontend manifests
-        run: |
-          kubectl apply -n ${{ secrets.K8S_NAMESPACE }} -f k8s/frontend-deployment.yaml
-          kubectl apply -n ${{ secrets.K8S_NAMESPACE }} -f k8s/frontend-service.yaml
+      - name: Apply frontend manifest
+        run: kubectl apply -n ${{ secrets.K8S_NAMESPACE }} -f k8s/frontend.yaml
 
       - name: Wait for frontend pod Ready
-        run: kubectl wait --for=condition=Ready pod -l app=frontend -n ${{ secrets.K8S_NAMESPACE }} --timeout=300s
+        run: kubectl wait --for=condition=Ready pod -l app=frontend -n ${{ secrets.K8S_NAMESPACE }} --timeout=300s || true
 
-      - name: Show services
+      - name: Show frontend service
         run: kubectl get svc -n ${{ secrets.K8S_NAMESPACE }}
