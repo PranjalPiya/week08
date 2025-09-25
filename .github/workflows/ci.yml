@@ -82,7 +82,7 @@ jobs:
         run: pytest -q
 
       - name: Azure login
-        uses: azure/login@v2
+        uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
